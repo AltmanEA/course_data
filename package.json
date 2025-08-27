@@ -1,0 +1,33 @@
+{
+  "name": "sliman",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "s:init": "tsx ./src/init.ts",
+    "s:add": "tsx ./src/add.ts",
+    "s:remove": "tsx ./src/remove.ts",
+    "s:dev": "tsx ./src/dev.ts",
+    "s:build": "tsx ./src/build.ts",
+    "s:view": "tsx ./src/view.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.15.0",
+  "devDependencies": {
+    "@eslint/js": "^9.30.1",
+    "@types/node": "^24.0.10",
+    "@types/pretty": "^2.0.3",
+    "eslint": "^9.30.1",
+    "globals": "^16.3.0",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.1"
+  },
+  "dependencies": {
+    "cheerio": "^1.1.0",
+    "http-server": "^14.1.1",
+    "pretty": "^2.0.0"
+  }
+}
