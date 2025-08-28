@@ -15,3 +15,4 @@ routerMode: hash
 - Документо-ориентированные базы данных (mongoDB)
 - ORM (object relational mapping) (prisma)
 
+ 

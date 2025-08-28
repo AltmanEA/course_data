@@ -30,5 +30,20 @@
   			"</div>",
 			"</div>" 
 		]		
-	}
+	},
+	"Listing": {
+		"prefix": ["kbc","лис"],
+		"description": "Вставить новый листинг",
+		"body": "```ts\n\n```\n"
+	},
+	"Monaco": {
+		"prefix": ["mon","ьщт"],
+		"description": "Вставить новый листинг",
+		"body": "```ts {monaco}\n\n```\n"
+	},
+	"Monaco-run": {
+		"prefix": ["run","кгт"],
+		"description": "Вставить новый листинг",
+		"body": "```ts {monaco-run}\n\n```\n"
+	},
 }
