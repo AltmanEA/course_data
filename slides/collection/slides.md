@@ -59,11 +59,9 @@ class RangeIterator implements Iterator<number> {
   next(): IteratorResult<number> {
     if (this.current <= this.end) {
       return { value: this.current++, done: false };
-    } else {
+    } else { 
       return { value: undefined, done: true };
-    }
-  }
-}
+    } } }
 const iterator = new RangeIterator(1, 3);
 for (let i of [0, 1, 2, 3]) console.log(next_print(iterator));
 ```
