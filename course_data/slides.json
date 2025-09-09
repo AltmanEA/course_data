@@ -7,6 +7,10 @@
     {
       "name": "collection",
       "title": "Коллекции"
+    },
+    {
+      "name": "serial",
+      "title": "Данные во внешней памяти"
     }
   ]
 }
