@@ -11,6 +11,10 @@
     {
       "name": "serial",
       "title": "Данные во внешней памяти"
+    },
+    {
+      "name": "mongo",
+      "title": "MongoDB"
     }
   ]
 }

@@ -36,6 +36,11 @@
 		"description": "Вставить новый листинг",
 		"body": "```ts\n\n```\n"
 	},
+	"Listing-result": {
+		"prefix": ["kbcn","лист"],
+		"description": "Вставить новый листинг с результатом",
+		"body": "```ts\n\n```\n```\n\n```\n"
+	},
 	"Monaco": {
 		"prefix": ["mon","ьщт"],
 		"description": "Вставить новый листинг",
