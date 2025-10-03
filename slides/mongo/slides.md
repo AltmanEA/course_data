@@ -437,3 +437,305 @@ courses.find({ grades: { $elemMatch: { value: 5, date: { $lt: day } } } })
 Математика: Маша - 5; Физика: Маша - 5; Информатика: Даша - 5
 Математика: Маша - 5; Физика: Маша - 5
 ```
+
+---
+
+# Фреймворк агрегации
+
+```ts
+await students.aggregate<WithId<Student>>(
+  [
+    {
+      $match: {
+        age: { $gt: 22 }
+      }
+    }
+  ]
+).toArray()
+```
+```
+Найти всех студентов старше 22 лет
+Саша - 23; Вася - 23; Петя - 24; Коля - 24
+```
+
+---
+
+# Фильтрация документов
+
+```ts
+courses.aggregate<WithId<Course>>([
+  {
+    $match: {
+      "grades.value": { $gte: 4 }
+    }
+  }
+])
+```
+```
+Найти курсы с оценками выше 4
+Математика: Маша - 5; Даша - 5; Саша - 3; Вася - 3; 
+Физика: Маша - 5; Даша - 4; Саша - 5; Коля - 3; 
+Информатика: Маша - 5; Даша - 4; Саша - 4
+```
+ 
+---
+ 
+# Группировка данных
+
+```ts
+students.aggregate([
+  {
+    $group: {
+      _id: "$age",
+      count: { $sum: 1 },
+      names: { $push: "$name" }
+    }
+  }
+])
+```
+```
+Группировка студентов по возрасту
+{"_id":23,"count":2,"names":["Саша","Вася"]}; 
+{"_id":22,"count":2,"names":["Маша","Даша"]}; 
+{"_id":24,"count":2,"names":["Петя","Коля"]}
+```
+
+---
+
+# Проекция полей
+
+```ts
+students.aggregate([{
+    $project: {
+      studentName: "$name",
+      age: 1,
+      isAdult: { $gte: ["$age", 13] },
+      yearOfBirth: { $subtract: [2025, "$age"] }
+    }}])
+```
+```
+Выборка и преобразование полей студентов
+{"_id":".","age":22,"studentName":"Маша","isAdult":false,"yearOfBirth":2003};
+{"_id":".","age":22,"studentName":"Даша","isAdult":false,"yearOfBirth":2003};
+{"_id":".","age":23,"studentName":"Саша","isAdult":true,"yearOfBirth":2002};
+{"_id":".","age":23,"studentName":"Вася","isAdult":true,"yearOfBirth":2002};
+{"_id":".","age":24,"studentName":"Петя","isAdult":true,"yearOfBirth":2001};
+{"_id":".","age":24,"studentName":"Коля","isAdult":true,"yearOfBirth":2001}
+```
+
+---
+
+# Pазворачивание массивов
+
+```ts
+courses.aggregate([
+{ $unwind: "$grades" },
+{ $project: {
+  courseName: "$name",
+  studentId: "$grades.studentId",
+  studentName: "$grades.studentName",
+  gradeValue: "$grades.value"} } ])
+```
+```
+Развернуть оценки и получить детальную информацию
+{"_id":".","courseName":"Математика","studentId":".","studentName":"Маша","gradeValue":5};
+{"_id":".","courseName":"Математика","studentId":".","studentName":"Даша","gradeValue":5};
+{"_id":".","courseName":"Математика","studentId":".","studentName":"Саша","gradeValue":3};
+{"_id":".","courseName":"Математика","studentId":".","studentName":"Вася","gradeValue":3};
+{"_id":".","courseName":"Физика","studentId":".","studentName":"Маша","gradeValue":5};
+{"_id":".","courseName":"Физика","studentId":".","studentName":"Даша","gradeValue":4};
+...
+```
+
+
+---
+
+# Фильтрация элементов массива
+
+<div class="grid grid-cols-2 gap-4">
+<div class="flex justify-center">
+```ts
+courses.aggregate([{
+$project: {
+  name: 1,
+  excellentGrades: {
+    $filter: {
+      input: "$grades",
+      as: "grade",
+      cond: { $eq: ["$$grade.value", 5] } }},
+  recentGrades: {
+    $filter: {
+      input: "$grades",
+      as: "grade",
+      cond: {
+        $gte: ["$$grade.date", 
+          new Date("2021-01-03")]
+    }}}}}])
+```
+</div>
+<div class="flex justify-center text-xs">
+<pre><code>Оставить только отличные оценки
+{"_id":".","name":"Математика",
+  "excellentGrades":[
+  {"studentName":"Маша","value":5},
+  {"studentName":"Даша","value":5}],
+  "recentGrades":[
+    {"studentName":"Вася","value":3]};
+{"_id":".","name":"Физика",
+  "excellentGrades":[
+  {"studentName":"Маша","value":5},
+  {"studentName":"Саша","value":5}],
+  "recentGrades":[
+    {"studentName":"Коля","value":3]};
+{"_id":".","name":"Информатика",
+  "excellentGrades":[
+...</code></pre>
+</div>
+</div>
+
+
+---
+
+# $lookup - объединение коллекций
+
+<div class="grid grid-cols-2 gap-4">
+<div class="flex justify-center">
+```ts
+students.aggregate([{
+$lookup: {
+  from: "courses",
+  let: { studentId: "$_id", studentName: "$name" },
+  pipeline: [
+    { $unwind: "$grades" },
+    { $match: {
+        $expr: {
+          $eq: ["$grades.studentId", "$$studentId"]
+        }}},
+    { $project: {
+        courseName: "$name",
+        gradeValue: "$grades.value",
+        gradeDate: "$grades.date"
+        }}],
+  as: "studentGrades"
+}}])
+```
+</div>
+<div class="flex justify-center text-xs">
+<pre><code> Объединить студентов с их оценками
+{"name":"Маша","age":22,"studentGrades":[
+  {"courseName":"Матем.","gradeValue":5},
+  {"courseName":"Физика","gradeValue":5},
+  {"courseName":"Информ.","gradeValue":5}]}; 
+{"name":"Даша","age":22,"studentGrades":[
+  {"courseName":"Матем.","gradeValue":5},
+  {"courseName":"Физика","gradeValue":4},
+  {"courseName":"Информ.","gradeValue":4}]}; 
+{"name":"Саша","age":23,"studentGrades":[
+  {"courseName":"Матем.","gradeValue":3},
+  {"courseName":"Физика","gradeValue":5},
+  {"courseName":"Информ.","gradeValue":4}]}; 
+{"name":"Вася","age":23,"studentGrades":[
+  {"courseName":"Матем.","gradeValue":3}]}; 
+{"name":"Петя","age":24,"studentGrades":[]}; 
+{"name":"Коля","age":24,"studentGrades":[
+  {"courseName":"Физика","gradeValue":3}]}</code></pre>
+</div>
+</div>
+
+
+---
+
+# Статистические операторы
+
+<div class="grid grid-cols-2 gap-4">
+<div class="flex justify-center">
+```ts
+courses.aggregate([
+  { $unwind: "$grades" },
+  { $group: {
+    _id: "$name",
+    avgGrade: { $avg: "$grades.value" },
+    maxGrade: { $max: "$grades.value" },
+    minGrade: { $min: "$grades.value" },
+    totalStudents: { $sum: 1 },
+    excellentCount: {
+      $sum: {
+        $cond: [{ $gte: ["$grades.value", 4] }, 1, 0]
+      } },
+    recentGradesCount: {
+      $sum: {
+        $cond: [
+          { $gte: ["$grades.date", 
+            new Date("2024-01-01")] },
+            1, 0 ] }
+      }}}])
+```
+</div>
+<div class="flex justify-center text-xs">
+<pre><code> Статистика по курсам
+{"_id":"Физика","avgGrade":4.25,
+  "maxGrade":5, "minGrade":3, 
+  "totalStudents":4,
+  "excellentCount":3,
+  "recentGradesCount":0}; 
+{"_id":"Информатика","avgGrade":4.33,
+  "maxGrade":5, "minGrade":4, 
+  "totalStudents":3,
+  "excellentCount":3,
+  "recentGradesCount":0}; 
+{"_id":"Математика","avgGrade":4,
+  "maxGrade":5, "minGrade":3, 
+  "totalStudents":4,
+  "excellentCount":2,
+  "recentGradesCount":0}</code></pre>
+</div>
+</div>
+
+
+---
+
+# Условные операторы
+
+<div class="grid grid-cols-2 gap-4">
+<div class="flex justify-center">
+```ts
+courses.aggregate([
+  { $unwind: "$grades" },
+  { $group: {
+    _id: { studentId: "$grades.studentId",
+      studentName: "$grades.studentName" },
+    avgGrade: { $avg: "$grades.value" },
+    coursesCount: { $sum: 1 } } },
+  { $project: {
+    studentId: "$_id.studentId",
+    studentName: "$_id.studentName",
+    avgGrade: { $round: ["$avgGrade", 2] },
+    coursesCount: 1,
+    performance: {
+      $switch: {
+        branches: [
+{ case: { $gte: ["$avgGrade", 4.5] }, then: "Отличник" },
+{ case: { $gte: ["$avgGrade", 3.5] }, then: "Хорошист" },
+{ case: { $gte: ["$avgGrade", 2.5] }, then: "Троечник" } ],
+      default: "Неудовлетворительно" } } } } ])
+```
+</div>
+<div class="flex justify-center text-xs">
+<pre><code>Категоризация по успеваемости
+{"count":3, "studentName":"Саша",
+  "avgGrade":4,
+  "performance":"Хорошист"}; 
+{"count":3, "studentName":"Даша",
+  "avgGrade":4.33,
+  "performance":"Хорошист"};
+{"count":3,"studentName":"Маша","
+  avgGrade":5,
+  "performance":"Отличник"}; 
+{"count":1,"studentName":"Вася",
+  "avgGrade":3,
+  "performance":"Троечник"};
+{"count":1,"studentName":"Коля",
+  "avgGrade":3,
+  "performance":"Троечник"}</code></pre>
+</div>
+</div>
