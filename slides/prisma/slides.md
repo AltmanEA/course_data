@@ -413,3 +413,234 @@ const updatedByPattern = await prisma.student.updateMany({
 # Модели с несколькими классами
 
 <img src="/model2.png" width="70%" style="display: block; margin: 0 auto;"/>
+
+
+---
+
+# Сидирование
+
+package.json
+```ts
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+```
+```ts
+  await prisma.grade.deleteMany() ...
+  const persons = await prisma.person.createMany({
+    data: [ { email: 'ivanov@example.com', name: 'Иван Иванов' }, ... ]})
+  
+  const people = await prisma.person.findMany()
+  const studentData = people.map(person => ({personId: person.id }))
+  const students = await prisma.student.createMany({data: studentData})
+  
+  const courses = await prisma.course.createMany({
+    data: [ { title: 'Математика', description: 'Основы высшей математики' }, ... ]})
+```
+
+
+---
+
+# Сидирование
+
+```ts
+  const allStudents = await prisma.student.findMany();
+  const allCourses = await prisma.course.findMany();
+  const grades = [
+    // Иван Иванов
+    // Математика
+    { grade: 5, studentId: allStudents[0].id, courseId: allCourses[0].id }, 
+    // Программирование
+    { grade: 4, studentId: allStudents[0].id, courseId: allCourses[2].id }, 
+  ...
+  ];
+  await prisma.grade.createMany({
+    data: grades,
+  });
+```
+```bash
+npx prisma db seed
+```
+
+---
+
+# Добавляем оценки
+
+```ts
+async function addGrade(studentId: number, courseId: number, grade: number) {
+  return await prisma.grade.create({
+    data: { grade, studentId, courseId } }); }
+async function addGradeTest( students: { ... }[], courses: { ...  }[] ) {
+  await studentGradesLog(students[0].id, "До выставления оценки");
+  // Invalid `prisma.grade.create()` invocation in ...
+  // Unique constraint failed on the fields: (`studentId`,`courseId`)
+  // await addGrade(students[0].id, courses[0].id, 5);
+  await addGrade(students[0].id, courses[1].id, 3);
+  await studentGradesLog(students[0].id, "После выставления оценки");
+}
+```
+
+---
+
+# Функция upsert, составный ключ
+
+```ts
+async function addGradeUpsert( studentId: number, courseId: number, grade: number ) {
+  return await prisma.grade.upsert({
+    where: {
+      // Используем составной уникальный ключ из схемы @@unique([studentId, courseId])
+      studentId_courseId: {
+        studentId: studentId,
+        courseId: courseId,
+      },
+    },
+    update: {
+      grade: grade, 
+    },
+    create: {
+      grade: grade,
+      studentId: studentId,
+      courseId: courseId,
+    }})}
+```
+
+---
+
+# Добавляем оценки безопасно
+
+```ts
+async function addGradeWithPreCheck(studentId: number, courseId: number, grade: number) {
+  // Предварительная проверка существования студента и курса
+  const [student, course, existingGrade] = await Promise.all([
+    prisma.student.findUnique({ where: { id: studentId } }),
+    prisma.course.findUnique({ where: { id: courseId } }),
+    prisma.grade.findUnique({
+      where: { studentId_courseId: { studentId, courseId } } }) ]);
+  // Проверка ошибок
+  if (!student) throw new Error(`Студент с id=${studentId} не найден`);
+  if (!course) throw new Error(`Курс с id=${courseId} не найден`);
+  // Если оценка уже существует - возвращаем существующую
+  if (existingGrade) {
+    console.log(`Оценка уже существует: ${existingGrade.grade}. Сохранена старая оценка.`);
+    return existingGrade; }
+  // Создаем новую оценку
+  return await prisma.grade.create({
+    data: { grade, studentId, courseId }
+  })}
+```
+
+---
+
+# Добавляем быстро и безопасно
+
+```ts
+async function addGradeWithErrorHandling(studentId: number, courseId: number, grade: number) {
+  try {
+    return await prisma.grade.create({
+      data: { grade, studentId, courseId }
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {      
+      if (error.code === 'P2002') { // Ошибка уникальности - оценка уже существует
+        const existingGrade = await prisma.grade.findUnique({
+          where: { studentId_courseId: { studentId, courseId } } });
+        console.log(`Оценка уже существует: ${existingGrade?.grade}. Сохранена старая оценка.`)
+        return existingGrade }      
+      if (error.code === 'P2003') { // Ошибка внешнего ключа - неверный studentId или courseId        
+        const [student, course] = await Promise.all([
+          prisma.student.findUnique({ where: { id: studentId } }),
+          prisma.course.findUnique({ where: { id: courseId } }) ])
+        if (!student) throw new Error(`Студент с id=${studentId} не найден`)
+        if (!course) throw new Error(`Курс с id=${courseId} не найден`)}
+    } throw error } }
+```
+
+
+---
+
+# Информация о курсе. Оператор include
+
+<div class="grid grid-cols-2 gap-4">
+<div class="flex justify-center">
+```ts
+async function getCourseStudents(
+  courseTitle: string
+) {
+  return await prisma.grade.findMany({
+    where: {
+      course: {
+        title: courseTitle
+      }
+    },
+    include: {
+      student: {
+        include: {
+          person: true
+        }}}})}
+```
+</div>
+<div class="flex justify-center">
+```json
+  {
+    "id": 3,
+    "grade": 3,
+    "createdAt": "2025-11-13T08:35:49.362Z",
+    "studentId": 2,
+    "courseId": 1,
+    "student": {
+      "id": 2,
+      "personId": 2,
+      "createdAt": "2025-11-13T08:35:49.352Z",
+      "person": {
+        "id": 2,
+        "email": "petrov@example.com",
+        "name": "Петр Петров",
+        "createdAt": "2025-11-13T08:35:49.343Z"
+      }
+    }
+  },
+```
+</div>
+</div>
+
+
+---
+
+# Получаем средний балл. Агрегация
+
+```ts
+async function getStudentAverage(studentEmail: string) {
+  const result = await prisma.grade.aggregate({
+    where: {
+      student: {
+        person: {
+          email: studentEmail
+        }
+      }
+    },
+    _avg: {
+      grade: true
+    }
+  });
+  return result._avg.grade;
+}
+```
+
+---
+
+# Составляем топ
+
+```ts
+async function getStudentRanking() {
+  return await prisma.grade.groupBy({
+    by: ['studentId'],
+    _avg: { grade: true },
+    _count: { _all: true },
+    orderBy: {
+      _avg: {
+        grade: 'desc'
+      }
+    }
+  })
+}
+```
